@@ -1,7 +1,5 @@
 # Manga Cleaner
 
-
-
 Service web Node.js pour nettoyer et afficher les pages de manga depuis KunManga, sans publicités.
 
 ## Installation
