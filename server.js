@@ -244,29 +244,48 @@ app.get('/', async (req, res) => {
         timeout: 30000
       });
       
-      // Attendre que les images se chargent
-      await page.waitForTimeout(3000);
+      // Attendre que la page soit complètement chargée
+      await page.waitForTimeout(2000);
+      
+      // Scroller la page pour déclencher le lazy loading des images
+      await page.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+      await page.waitForTimeout(2000);
+      
+      // Scroller vers le haut
+      await page.evaluate(() => {
+        window.scrollTo(0, 0);
+      });
+      await page.waitForTimeout(1000);
       
       // Extraire les images directement via JavaScript dans le navigateur
       const images = await page.evaluate((baseUrl) => {
         const imageUrls = new Set();
         
-        // Sélecteurs prioritaires
+        // Sélecteurs prioritaires pour KunManga
         const selectors = [
           '#readerarea img',
           '#readerarea picture img',
+          '#readerarea source',
           '.reading-content img',
           '.reading-content picture img',
           '.page-break img',
           '.entry-content img',
           '.wp-manga-chapter-img',
+          '.wp-manga-chapter-img img',
           '.chapter-content img',
           '.chapter-reader img',
+          '.wp-manga-section img',
+          '.wp-manga-section picture img',
           '[class*="reader"] img',
           '[class*="chapter"] img',
           '[id*="reader"] img',
           '[id*="chapter"] img',
-          '.wp-manga-section img'
+          'main img',
+          'article img',
+          '.content img',
+          '.post-content img'
         ];
         
         // Essayer chaque sélecteur
@@ -274,11 +293,18 @@ app.get('/', async (req, res) => {
           const images = document.querySelectorAll(selector);
           if (images.length > 0) {
             images.forEach(img => {
-              let src = img.dataset.src || 
+              // Essayer plusieurs attributs pour les images lazy-load
+              let src = img.getAttribute('data-src') || 
+                       img.getAttribute('data-lazy-src') || 
+                       img.getAttribute('data-original') ||
+                       img.getAttribute('data-url') ||
+                       img.getAttribute('data-lazy') ||
+                       img.dataset.src || 
                        img.dataset.lazySrc || 
                        img.dataset.original ||
                        img.dataset.url ||
-                       img.src;
+                       img.src ||
+                       (img.tagName === 'SOURCE' ? img.srcset : null);
               
               if (src) {
                 const lowerSrc = src.toLowerCase();
