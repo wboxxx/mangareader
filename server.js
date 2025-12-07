@@ -247,20 +247,96 @@ app.get('/', async (req, res) => {
       // Attendre que les images se chargent
       await page.waitForTimeout(3000);
       
-      // Attendre que les images soient présentes dans le DOM
-      try {
-        await page.waitForSelector('img', { timeout: 5000 });
-      } catch (e) {
-        // Continue même si pas d'images trouvées immédiatement
-      }
-      
-      // Récupérer le HTML après que tout soit chargé
-      const html = await page.content();
+      // Extraire les images directement via JavaScript dans le navigateur
+      const images = await page.evaluate((baseUrl) => {
+        const imageUrls = new Set();
+        
+        // Sélecteurs prioritaires
+        const selectors = [
+          '#readerarea img',
+          '#readerarea picture img',
+          '.reading-content img',
+          '.reading-content picture img',
+          '.page-break img',
+          '.entry-content img',
+          '.wp-manga-chapter-img',
+          '.chapter-content img',
+          '.chapter-reader img',
+          '[class*="reader"] img',
+          '[class*="chapter"] img',
+          '[id*="reader"] img',
+          '[id*="chapter"] img',
+          '.wp-manga-section img'
+        ];
+        
+        // Essayer chaque sélecteur
+        for (const selector of selectors) {
+          const images = document.querySelectorAll(selector);
+          if (images.length > 0) {
+            images.forEach(img => {
+              let src = img.dataset.src || 
+                       img.dataset.lazySrc || 
+                       img.dataset.original ||
+                       img.dataset.url ||
+                       img.src;
+              
+              if (src) {
+                const lowerSrc = src.toLowerCase();
+                // Filtrer les placeholders
+                if (!lowerSrc.includes('placeholder') && 
+                    !lowerSrc.includes('spinner') && 
+                    !lowerSrc.includes('loading') &&
+                    !lowerSrc.includes('1x1') &&
+                    !lowerSrc.startsWith('data:image/svg')) {
+                  try {
+                    const absoluteUrl = new URL(src, baseUrl).href;
+                    if (absoluteUrl && absoluteUrl.startsWith('http')) {
+                      imageUrls.add(absoluteUrl);
+                    }
+                  } catch (e) {
+                    // Invalid URL, skip
+                  }
+                }
+              }
+            });
+            if (imageUrls.size > 0) break;
+          }
+        }
+        
+        // Fallback: toutes les images
+        if (imageUrls.size === 0) {
+          document.querySelectorAll('img').forEach(img => {
+            let src = img.dataset.src || 
+                     img.dataset.lazySrc || 
+                     img.dataset.original ||
+                     img.dataset.url ||
+                     img.src;
+            
+            if (src) {
+              const lowerSrc = src.toLowerCase();
+              if (!lowerSrc.includes('placeholder') && 
+                  !lowerSrc.includes('spinner') && 
+                  !lowerSrc.includes('loading') &&
+                  !lowerSrc.includes('1x1') &&
+                  !lowerSrc.startsWith('data:image/svg')) {
+                try {
+                  const absoluteUrl = new URL(src, baseUrl).href;
+                  if (absoluteUrl && absoluteUrl.startsWith('http')) {
+                    imageUrls.add(absoluteUrl);
+                  }
+                } catch (e) {
+                  // Invalid URL, skip
+                }
+              }
+            }
+          });
+        }
+        
+        return Array.from(imageUrls);
+      }, url);
       
       await browser.close();
       browser = null;
-      
-      const images = extractKunmangaImages(html, url);
       
       if (images.length === 0) {
       res.send(`
