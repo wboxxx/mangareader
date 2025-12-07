@@ -248,25 +248,51 @@ app.get('/', async (req, res) => {
     if (BRIGHT_DATA_API_KEY) {
       console.log('Using Bright Data to bypass Cloudflare...');
       try {
-        // Bright Data utilise un endpoint API avec la clé en paramètre
-        // Format: https://api.brightdata.com/request?api_key=XXX&url=YYY
-        const brightDataUrl = `https://api.brightdata.com/request?api_key=${BRIGHT_DATA_API_KEY}&url=${encodeURIComponent(url)}`;
-        
+        // Bright Data utilise des proxies HTTP avec authentification
+        // La clé API doit être utilisée avec un format spécifique selon votre compte
+        // Essayer plusieurs formats d'endpoint possibles
         console.log(`Fetching via Bright Data: ${url}`);
         
-        const response = await fetch(brightDataUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-            'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7'
-          },
-          timeout: 60000
-        });
+        let response;
+        let errorDetails = '';
         
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => 'No error details');
-          console.log(`Bright Data HTTP ${response.status} error: ${errorText.substring(0, 200)}`);
-          throw new Error(`Bright Data error: HTTP ${response.status} - ${errorText.substring(0, 100)}`);
+        // Format 1: Endpoint API avec customer ID (si disponible)
+        // Format 2: Proxy HTTP direct (nécessite https-proxy-agent)
+        // Pour l'instant, essayer l'endpoint API standard de Bright Data
+        const brightDataEndpoints = [
+          `https://api.brightdata.com/request?api_key=${BRIGHT_DATA_API_KEY}&url=${encodeURIComponent(url)}`,
+          `https://api.brightdata.com/request?api_key=${BRIGHT_DATA_API_KEY}&url=${encodeURIComponent(url)}&format=html`,
+          `https://api.brightdata.com/request?api_key=${BRIGHT_DATA_API_KEY}&url=${encodeURIComponent(url)}&render=true`
+        ];
+        
+        for (const endpoint of brightDataEndpoints) {
+          try {
+            console.log(`Trying Bright Data endpoint: ${endpoint.substring(0, 80)}...`);
+            response = await fetch(endpoint, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7'
+              },
+              timeout: 60000
+            });
+            
+            if (response.ok) {
+              console.log(`Bright Data endpoint successful!`);
+              break;
+            } else {
+              errorDetails = `HTTP ${response.status}`;
+            }
+          } catch (endpointError) {
+            errorDetails = endpointError.message;
+            continue;
+          }
+        }
+        
+        if (!response || !response.ok) {
+          const errorText = await (response ? response.text().catch(() => 'No error details') : Promise.resolve('No response'));
+          console.log(`Bright Data failed: ${errorDetails} - ${errorText.substring(0, 200)}`);
+          throw new Error(`Bright Data error: ${errorDetails} - ${errorText.substring(0, 100)}`);
         }
         
         const html = await response.text();
