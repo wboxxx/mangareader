@@ -247,104 +247,34 @@ app.get('/', async (req, res) => {
     
     if (SCRAPERAPI_KEY) {
       console.log('Using ScraperAPI to bypass Cloudflare...');
-      const scraperApiUrl = `http://api.scraperapi.com?api_key=${SCRAPERAPI_KEY}&url=${encodeURIComponent(url)}`;
-      
-      const response = await fetch(scraperApiUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
-        },
-        timeout: 30000
-      });
-      
-      if (!response.ok) {
-        throw new Error(`ScraperAPI error: HTTP ${response.status}`);
-      }
-      
-      const html = await response.text();
-      const images = extractKunmangaImages(html, url);
-      
-      if (images.length === 0) {
-        res.send(`
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Erreur - Manga Cleaner</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    body {
-      background-color: #1a1a1a;
-      color: #e0e0e0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    .container {
-      max-width: 800px;
-      width: 100%;
-      background-color: #2a2a2a;
-      padding: 40px;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    }
-    h1 {
-      margin-bottom: 20px;
-      color: #ff6b6b;
-    }
-    .error-info {
-      background-color: #1a1a1a;
-      padding: 20px;
-      border-radius: 4px;
-      margin: 20px 0;
-    }
-    code {
-      background-color: #0a0a0a;
-      padding: 2px 6px;
-      border-radius: 3px;
-      color: #4a9eff;
-      word-break: break-all;
-    }
-    a {
-      color: #4a9eff;
-      text-decoration: none;
-      margin-top: 20px;
-      display: inline-block;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>❌ Aucune image trouvée</h1>
-    <div class="error-info">
-      <p><strong>URL source :</strong></p>
-      <code>${escapeHtml(url)}</code>
-      <p style="margin-top: 15px;">Aucune image n'a pu être extraite de cette page. Vérifiez que l'URL est correcte.</p>
-    </div>
-    <a href="/">← Retour au formulaire</a>
-  </div>
-</body>
-</html>
-      `);
-        return;
-      }
-      
-      const imagesHtml = images.map(imgUrl => 
-        `<img src="${escapeHtml(imgUrl)}" alt="Page manga" style="max-width: 100%; height: auto; display: block; margin: 0 auto;">`
-      ).join('\n');
-      
-      res.send(`
+      try {
+        // Utiliser HTTPS et ajouter des paramètres pour le rendu JavaScript si nécessaire
+        const scraperApiUrl = `https://api.scraperapi.com?api_key=${SCRAPERAPI_KEY}&url=${encodeURIComponent(url)}&render=true`;
+        
+        console.log(`Fetching via ScraperAPI: ${url}`);
+        
+        const response = await fetch(scraperApiUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+          },
+          timeout: 60000 // Augmenter à 60 secondes
+        });
+        
+        if (!response.ok) {
+          throw new Error(`ScraperAPI error: HTTP ${response.status}`);
+        }
+        
+        const html = await response.text();
+        const images = extractKunmangaImages(html, url);
+        
+        if (images.length > 0) {
+          console.log(`ScraperAPI: Extracted ${images.length} images`);
+          
+          const imagesHtml = images.map(imgUrl => 
+            `<img src="${escapeHtml(imgUrl)}" alt="Page manga" style="max-width: 100%; height: auto; display: block; margin: 0 auto;">`
+          ).join('\n');
+          
+          res.send(`
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -404,12 +334,20 @@ app.get('/', async (req, res) => {
   </div>
 </body>
 </html>
-      `);
-      return;
+          `);
+          return;
+        } else {
+          console.log('ScraperAPI: No images found, falling back to Puppeteer...');
+          // Continue vers Puppeteer
+        }
+      } catch (scraperError) {
+        console.log(`ScraperAPI failed: ${scraperError.message}, falling back to Puppeteer...`);
+        // Continue vers Puppeteer en cas d'erreur
+      }
     }
     
-    // Option 2: Fallback sur Puppeteer si ScraperAPI n'est pas configuré
-    console.log('ScraperAPI not configured, using Puppeteer...');
+    // Si ScraperAPI n'est pas configuré, a échoué, ou n'a pas trouvé d'images, utiliser Puppeteer
+    console.log('Using Puppeteer as fallback or primary method...');
     
     // Utiliser Puppeteer pour simuler un vrai navigateur
     let browser;
