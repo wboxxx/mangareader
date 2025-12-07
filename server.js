@@ -318,7 +318,10 @@ app.get('/', async (req, res) => {
           const bodyText = document.body ? document.body.innerText : '';
           const hasCloudflare = bodyText.includes('Verify you are human') || 
                                bodyText.includes('review the security') ||
-                               document.querySelector('#cf-chl-widget') !== null;
+                               bodyText.includes('Un instant') ||
+                               document.querySelector('#cf-chl-widget') !== null ||
+                               document.querySelector('iframe[src*="challenges.cloudflare.com"]') !== null ||
+                               document.querySelector('iframe[src*="turnstile"]') !== null;
           const hasContent = document.querySelector('.reading-content') !== null ||
                             document.querySelector('.wp-manga-section') !== null ||
                             document.querySelector('main') !== null ||
@@ -333,6 +336,10 @@ app.get('/', async (req, res) => {
           const hasMangaTitle = pageTitle.toLowerCase().includes('chapter') || 
                                pageTitle.toLowerCase().includes('manga') ||
                                pageTitle.toLowerCase().includes('read');
+          const isCloudflareWaiting = pageTitle.includes('Un instant') || pageTitle.includes('Just a moment');
+          
+          // Vérifier les iframes Turnstile
+          const turnstileIframes = document.querySelectorAll('iframe[src*="turnstile"], iframe[src*="challenges"]').length;
           
           return { 
             hasCloudflare, 
@@ -340,18 +347,27 @@ app.get('/', async (req, res) => {
             totalImages,
             readingContentImages,
             hasMangaTitle,
+            isCloudflareWaiting,
+            turnstileIframes,
             pageTitle: pageTitle.substring(0, 50),
             bodyText: bodyText.substring(0, 150),
             url: window.location.href
           };
         });
         
-        console.log(`Attempt ${attempts}: Cloudflare=${check.hasCloudflare}, Content=${check.hasContent}, Images=${check.totalImages}, Title="${check.pageTitle}"`);
+        console.log(`Attempt ${attempts}: Cloudflare=${check.hasCloudflare}, Waiting=${check.isCloudflareWaiting}, Content=${check.hasContent}, Images=${check.totalImages}, Turnstile=${check.turnstileIframes}, Title="${check.pageTitle}"`);
         
         // Si on a du contenu ou des images, considérer que c'est bon
-        if (!check.hasCloudflare && (check.hasContent || check.totalImages > 0 || check.hasMangaTitle)) {
+        if (!check.hasCloudflare && !check.isCloudflareWaiting && (check.hasContent || check.totalImages > 0 || check.hasMangaTitle)) {
           isCloudflareBlocked = false;
           console.log('Content detected! Cloudflare resolved or page loaded.');
+          break;
+        }
+        
+        // Si on n'est plus en attente Cloudflare et qu'on a des images, continuer
+        if (!check.isCloudflareWaiting && check.totalImages > 0) {
+          isCloudflareBlocked = false;
+          console.log('Images found, continuing extraction...');
           break;
         }
         
