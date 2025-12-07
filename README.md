@@ -9,7 +9,24 @@ Service web Node.js pour nettoyer et afficher les pages de manga depuis KunManga
 ### Prérequis
 
 - Docker et Docker Compose installés sur votre NAS Synology
+- Git installé sur le NAS (voir ci-dessous)
 - Ce repo cloné dans `/volume1/git/manga-cleaner` (ou autre emplacement)
+
+### Installation de Git sur Synology NAS
+
+**Méthode 1 : Via Package Center (recommandé)**
+1. Ouvrir Package Center sur votre NAS
+2. Rechercher "Git Server" ou "Git"
+3. Installer le package
+
+**Méthode 2 : Via SSH (si Package Center ne propose pas Git)**
+1. Activer SSH dans Panneau de configuration > Terminal et SNMP
+2. Se connecter en SSH : `ssh admin@<NAS_IP>`
+3. Installer via Entware (si disponible) :
+   ```bash
+   opkg install git
+   ```
+   Ou via le gestionnaire de paquets système selon votre version DSM
 
 ### Lancement
 Depuis le répertoire du projet :
