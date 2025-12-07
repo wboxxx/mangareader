@@ -10,7 +10,6 @@ Service web Node.js pour nettoyer et afficher les pages de manga depuis KunManga
 - Ce repo cloné dans `/volume1/git/manga-cleaner` (ou autre emplacement)
 
 ### Lancement
-
 Depuis le répertoire du projet :
 
 ```bash
