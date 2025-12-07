@@ -14,6 +14,7 @@ services:
       - NODE_ENV=production
       - PORT=3001
       - BRIGHT_DATA_API_KEY=6d272379348acf2c6c0313af5a5e46f3beeb4108f1fe04a7c62f32bcaa48f7c0
+      - BRIGHT_DATA_ZONE=${BRIGHT_DATA_ZONE:-unlocker}
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
       interval: 30s
