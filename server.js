@@ -414,11 +414,16 @@ app.get('/', async (req, res) => {
       
       // Naviguer vers la page
       console.log(`Navigating to ${url}...`);
-      await page.goto(url, {
-        waitUntil: 'networkidle2',
-        timeout: 30000
-      });
-      console.log('Page loaded, checking for Cloudflare...');
+      try {
+        await page.goto(url, {
+          waitUntil: 'networkidle2',
+          timeout: 60000 // Augmenter à 60 secondes
+        });
+        console.log('Page loaded, checking for Cloudflare...');
+      } catch (navError) {
+        console.log(`Navigation timeout/error: ${navError.message}, continuing anyway...`);
+        // Continuer même en cas d'erreur de navigation
+      }
       
       // Attendre que Cloudflare Turnstile soit résolu
       // Vérifier si on est bloqué par Cloudflare
