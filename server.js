@@ -372,6 +372,12 @@ app.get('/', async (req, res) => {
       await browser.close();
       browser = null;
       
+      // Log pour debug
+      console.log(`Extracted ${images ? images.length : 0} images from ${url}`);
+      if (images && images.length > 0) {
+        console.log('First image URL:', images[0].substring(0, 80));
+      }
+      
       if (!images || images.length === 0) {
       res.send(`
 <!DOCTYPE html>
