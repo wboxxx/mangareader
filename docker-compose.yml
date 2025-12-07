@@ -7,30 +7,14 @@ services:
       dockerfile: Dockerfile
     container_name: manga-cleaner
     restart: unless-stopped
-    ports:
-      - "3001:3000"
+    network_mode: host
     environment:
       - NODE_ENV=production
       - PORT=3000
-    dns:
-      - 192.168.1.1
-      - 8.8.8.8
-      - 8.8.4.4
-      - 1.1.1.1
-    dns_search:
-      - local
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    networks:
-      - manga-cleaner-network
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-
-networks:
-  manga-cleaner-network:
-    driver: bridge
 
