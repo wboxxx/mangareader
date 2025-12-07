@@ -261,124 +261,106 @@ app.get('/', async (req, res) => {
       
       // Extraire les images directement via JavaScript dans le navigateur
       const images = await page.evaluate((baseUrl) => {
-        const imageUrls = new Set();
+        const imageUrls = [];
+        const debug = [];
         
-        // Sélecteurs prioritaires pour KunManga (basés sur la structure réelle)
-        const selectors = [
-          '.reading-content img',  // PRIORITÉ: 11 images trouvées
-          '.reading-content picture img',
-          '.wp-manga-section img',
-          '.wp-manga-section .reading-content img',
-          '#readerarea img',
-          '#readerarea picture img',
-          '.page-break img',
-          '.entry-content img',
-          '.wp-manga-chapter-img',
-          '.wp-manga-chapter-img img',
-          '.chapter-content img',
-          '.chapter-reader img',
-          '[class*="reader"] img',
-          '[class*="chapter"] img',
-          '[id*="reader"] img',
-          '[id*="chapter"] img'
-        ];
+        // Sélecteur principal: .reading-content img (11 images trouvées manuellement)
+        const readingContent = document.querySelector('.reading-content');
+        debug.push(`.reading-content exists: ${!!readingContent}`);
         
-        // Essayer chaque sélecteur
-        for (const selector of selectors) {
-          const images = document.querySelectorAll(selector);
-          if (images.length > 0) {
-            images.forEach(img => {
-              // Essayer plusieurs attributs pour les images lazy-load
-              // PRIORITÉ: img.src (les images KunManga ont src directement)
-              let src = img.src || 
-                       img.getAttribute('data-src') || 
-                       img.getAttribute('data-lazy-src') || 
-                       img.getAttribute('data-original') ||
-                       img.getAttribute('data-url') ||
-                       img.getAttribute('data-lazy') ||
-                       img.dataset.src || 
-                       img.dataset.lazySrc || 
-                       img.dataset.original ||
-                       img.dataset.url ||
-                       (img.tagName === 'SOURCE' ? img.srcset : null);
-              
-              if (src && typeof src === 'string' && src.trim()) {
-                const lowerSrc = src.toLowerCase();
-                // Filtrer les placeholders et les petites images (probablement des icônes)
-                const isPlaceholder = lowerSrc.includes('placeholder') || 
-                                     lowerSrc.includes('spinner') || 
-                                     lowerSrc.includes('loading') ||
-                                     lowerSrc.includes('1x1') ||
-                                     lowerSrc.startsWith('data:image/svg') ||
-                                     (lowerSrc.includes('icon') && !lowerSrc.includes('manga')) ||
-                                     (lowerSrc.includes('logo') && !lowerSrc.includes('manga'));
-                
-                // Vérifier la taille réelle de l'image si disponible
-                // Les images manga sont grandes (width ~800, height > 10000)
-                const isSmallImage = img.naturalWidth && img.naturalWidth < 100;
-                const isMangaImage = img.naturalWidth >= 500 || img.naturalHeight >= 5000;
-                
-                // Accepter si c'est une image manga ou si on n'a pas d'info de taille
-                if (!isPlaceholder && (!isSmallImage || isMangaImage || !img.naturalWidth)) {
-                  try {
-                    // Nettoyer l'URL (enlever les espaces, etc.)
-                    src = src.trim();
-                    const absoluteUrl = new URL(src, baseUrl).href;
-                    if (absoluteUrl && absoluteUrl.startsWith('http') && !absoluteUrl.includes('placeholder')) {
-                      imageUrls.add(absoluteUrl);
-                    }
-                  } catch (e) {
-                    // Invalid URL, skip
-                  }
-                }
-              }
-            });
-            if (imageUrls.size > 0) break;
-          }
-        }
-        
-        // Fallback: toutes les images
-        if (imageUrls.size === 0) {
-          document.querySelectorAll('img').forEach(img => {
-            let src = img.dataset.src || 
-                     img.dataset.lazySrc || 
-                     img.dataset.original ||
-                     img.dataset.url ||
-                     img.src;
+        if (readingContent) {
+          const imgs = readingContent.querySelectorAll('img');
+          debug.push(`Found ${imgs.length} images in .reading-content`);
+          
+          imgs.forEach((img, index) => {
+            // PRIORITÉ: img.src (les images KunManga ont src directement)
+            let src = img.src;
             
-            if (src) {
+            if (!src || !src.trim()) {
+              src = img.getAttribute('data-src') || 
+                    img.getAttribute('data-lazy-src') || 
+                    img.getAttribute('data-original') ||
+                    img.getAttribute('data-url');
+            }
+            
+            const width = img.naturalWidth || img.width || 0;
+            const height = img.naturalHeight || img.height || 0;
+            
+            debug.push(`Image ${index}: src=${src ? src.substring(0, 50) : 'none'}, size=${width}x${height}`);
+            
+            if (src && typeof src === 'string' && src.trim()) {
+              src = src.trim();
               const lowerSrc = src.toLowerCase();
-              if (!lowerSrc.includes('placeholder') && 
-                  !lowerSrc.includes('spinner') && 
-                  !lowerSrc.includes('loading') &&
-                  !lowerSrc.includes('1x1') &&
-                  !lowerSrc.startsWith('data:image/svg')) {
+              
+              // Filtrer les placeholders
+              const isPlaceholder = lowerSrc.includes('placeholder') || 
+                                   lowerSrc.includes('spinner') || 
+                                   lowerSrc.includes('loading') ||
+                                   lowerSrc.includes('1x1') ||
+                                   lowerSrc.startsWith('data:image/svg');
+              
+              // Vérifier la taille (images manga: width ~800, height > 10000)
+              const isLargeImage = width >= 500 || height >= 5000;
+              
+              debug.push(`  -> placeholder:${isPlaceholder}, large:${isLargeImage}, width:${width}`);
+              
+              if (!isPlaceholder && (isLargeImage || width === 0)) {
                 try {
                   const absoluteUrl = new URL(src, baseUrl).href;
                   if (absoluteUrl && absoluteUrl.startsWith('http')) {
-                    imageUrls.add(absoluteUrl);
+                    imageUrls.push(absoluteUrl);
+                    debug.push(`  -> ADDED: ${absoluteUrl.substring(0, 60)}`);
                   }
                 } catch (e) {
-                  // Invalid URL, skip
+                  debug.push(`  -> ERROR: ${e.message}`);
                 }
+              } else {
+                debug.push(`  -> FILTERED`);
               }
+            } else {
+              debug.push(`  -> NO SRC`);
+            }
+          });
+        } else {
+          debug.push('No .reading-content found, trying fallback');
+          // Fallback: toutes les images
+          const allImgs = document.querySelectorAll('img');
+          debug.push(`Fallback: Found ${allImgs.length} total images`);
+          allImgs.forEach((img, index) => {
+            const src = img.src || img.getAttribute('data-src') || img.getAttribute('data-lazy-src');
+            if (src && src.startsWith('http') && !src.toLowerCase().includes('placeholder')) {
+              try {
+                const absoluteUrl = new URL(src, baseUrl).href;
+                if (absoluteUrl && absoluteUrl.startsWith('http')) {
+                  imageUrls.push(absoluteUrl);
+                }
+              } catch (e) {}
             }
           });
         }
         
-        return Array.from(imageUrls);
+        // Retourner les images et les logs de debug
+        return { images: imageUrls, debug: debug };
       }, url);
+      
+      // Logger les résultats de debug
+      if (images.debug && images.debug.length > 0) {
+        console.log('Image extraction debug:');
+        images.debug.forEach(line => console.log('  ' + line));
+      }
+      
+      const imageUrls = images.images || images; // Support ancien format
       
       await browser.close();
       browser = null;
       
       // Log pour debug
-      console.log(`Extracted ${images ? images.length : 0} images from ${url}`);
-      if (images && images.length > 0) {
-        console.log('First image URL:', images[0].substring(0, 80));
+      console.log(`Extracted ${imageUrls ? imageUrls.length : 0} images from ${url}`);
+      if (imageUrls && imageUrls.length > 0) {
+        console.log('First image URL:', imageUrls[0].substring(0, 80));
       }
       
-      if (!images || images.length === 0) {
+      if (!imageUrls || imageUrls.length === 0) {
       res.send(`
 <!DOCTYPE html>
 <html lang="fr">
@@ -470,7 +452,7 @@ app.get('/', async (req, res) => {
       return;
     }
     
-    const imagesHtml = images.map(imgUrl => 
+    const imagesHtml = imageUrls.map(imgUrl => 
       `<img src="${escapeHtml(imgUrl)}" alt="Page manga" style="max-width: 100%; height: auto; display: block; margin: 0 auto;">`
     ).join('\n');
     
@@ -527,7 +509,7 @@ app.get('/', async (req, res) => {
 <body>
   <div class="info-bar">
     <p><strong>Pages extraites depuis :</strong> <code>${escapeHtml(url)}</code></p>
-    <p><strong>Nombre d'images :</strong> ${images.length}</p>
+    <p><strong>Nombre d'images :</strong> ${imageUrls.length}</p>
   </div>
   <div class="images-container">
     ${imagesHtml}
