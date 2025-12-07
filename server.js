@@ -213,8 +213,8 @@ app.get('/', async (req, res) => {
       browser = null;
       
       const images = extractKunmangaImages(html, url);
-    
-    if (images.length === 0) {
+      
+      if (images.length === 0) {
       res.send(`
 <!DOCTYPE html>
 <html lang="fr">
@@ -371,16 +371,20 @@ app.get('/', async (req, res) => {
 </body>
 </html>
     `);
+      
+    } catch (puppeteerError) {
+      // Fermer le browser en cas d'erreur Puppeteer
+      if (browser) {
+        try {
+          await browser.close();
+        } catch (e) {
+          // Ignore
+        }
+      }
+      throw puppeteerError;
+    }
     
   } catch (error) {
-    // Fermer le browser en cas d'erreur
-    if (browser) {
-      try {
-        await browser.close();
-      } catch (e) {
-        // Ignore
-      }
-    }
     
     res.status(500).send(`
 <!DOCTYPE html>
