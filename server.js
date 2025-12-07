@@ -263,29 +263,24 @@ app.get('/', async (req, res) => {
       const images = await page.evaluate((baseUrl) => {
         const imageUrls = new Set();
         
-        // Sélecteurs prioritaires pour KunManga
+        // Sélecteurs prioritaires pour KunManga (basés sur la structure réelle)
         const selectors = [
+          '.reading-content img',  // PRIORITÉ: 11 images trouvées
+          '.reading-content picture img',
+          '.wp-manga-section img',
+          '.wp-manga-section .reading-content img',
           '#readerarea img',
           '#readerarea picture img',
-          '#readerarea source',
-          '.reading-content img',
-          '.reading-content picture img',
           '.page-break img',
           '.entry-content img',
           '.wp-manga-chapter-img',
           '.wp-manga-chapter-img img',
           '.chapter-content img',
           '.chapter-reader img',
-          '.wp-manga-section img',
-          '.wp-manga-section picture img',
           '[class*="reader"] img',
           '[class*="chapter"] img',
           '[id*="reader"] img',
-          '[id*="chapter"] img',
-          'main img',
-          'article img',
-          '.content img',
-          '.post-content img'
+          '[id*="chapter"] img'
         ];
         
         // Essayer chaque sélecteur
@@ -308,12 +303,19 @@ app.get('/', async (req, res) => {
               
               if (src) {
                 const lowerSrc = src.toLowerCase();
-                // Filtrer les placeholders
-                if (!lowerSrc.includes('placeholder') && 
-                    !lowerSrc.includes('spinner') && 
-                    !lowerSrc.includes('loading') &&
-                    !lowerSrc.includes('1x1') &&
-                    !lowerSrc.startsWith('data:image/svg')) {
+                // Filtrer les placeholders et les petites images (probablement des icônes)
+                const isPlaceholder = lowerSrc.includes('placeholder') || 
+                                     lowerSrc.includes('spinner') || 
+                                     lowerSrc.includes('loading') ||
+                                     lowerSrc.includes('1x1') ||
+                                     lowerSrc.startsWith('data:image/svg') ||
+                                     lowerSrc.includes('icon') ||
+                                     lowerSrc.includes('logo');
+                
+                // Vérifier la taille réelle de l'image si disponible
+                const isSmallImage = img.naturalWidth && img.naturalWidth < 100;
+                
+                if (!isPlaceholder && !isSmallImage) {
                   try {
                     const absoluteUrl = new URL(src, baseUrl).href;
                     if (absoluteUrl && absoluteUrl.startsWith('http')) {
