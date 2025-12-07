@@ -177,7 +177,7 @@ app.get('/', async (req, res) => {
     const urlObj = new URL(url);
     const domain = urlObj.origin;
     
-    // D'abord, faire une requête vers la page d'accueil pour simuler une navigation
+    // D'abord MAMA, faire une requête vers la page d'accueil pour simuler une navigation
     try {
       await fetch(domain, {
         headers: {
