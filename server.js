@@ -352,6 +352,7 @@ app.get('/', async (req, res) => {
     // Utiliser Puppeteer pour simuler un vrai navigateur
     let browser;
     try {
+      console.log('Launching Puppeteer browser...');
       browser = await puppeteer.launch({
         headless: 'new',
         args: [
@@ -363,8 +364,10 @@ app.get('/', async (req, res) => {
         ]
       });
       
+      console.log('Browser launched, creating new page...');
       const page = await browser.newPage();
       
+      console.log('Setting up stealth features...');
       // Masquer les signaux de bot
       await page.evaluateOnNewDocument(() => {
         Object.defineProperty(navigator, 'webdriver', {
@@ -406,10 +409,12 @@ app.get('/', async (req, res) => {
       });
       
       // Naviguer vers la page
+      console.log(`Navigating to ${url}...`);
       await page.goto(url, {
         waitUntil: 'networkidle2',
         timeout: 30000
       });
+      console.log('Page loaded, checking for Cloudflare...');
       
       // Attendre que Cloudflare Turnstile soit résolu
       // Vérifier si on est bloqué par Cloudflare
