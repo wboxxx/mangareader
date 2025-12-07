@@ -20,11 +20,21 @@ function extractKunmangaImages(html, baseUrl) {
   const $ = cheerio.load(html);
   const imageUrls = new Set();
   
+  // Sélecteurs prioritaires pour KunManga
   const selectors = [
     '#readerarea img',
+    '#readerarea picture img',
     '.reading-content img',
+    '.reading-content picture img',
     '.page-break img',
-    '.entry-content img'
+    '.entry-content img',
+    '.wp-manga-chapter-img',
+    '.chapter-content img',
+    '.chapter-reader img',
+    '[class*="reader"] img',
+    '[class*="chapter"] img',
+    '[id*="reader"] img',
+    '[id*="chapter"] img'
   ];
   
   let found = false;
@@ -34,14 +44,30 @@ function extractKunmangaImages(html, baseUrl) {
       found = true;
       images.each((i, elem) => {
         const $img = $(elem);
+        // Essayer plusieurs attributs pour les images lazy-load
         let src = $img.attr('data-src') || 
                   $img.attr('data-lazy-src') || 
+                  $img.attr('data-original') ||
+                  $img.attr('data-url') ||
                   $img.attr('src');
         
         if (src) {
+          // Filtrer les images de placeholder/spinner
+          const lowerSrc = src.toLowerCase();
+          if (lowerSrc.includes('placeholder') || 
+              lowerSrc.includes('spinner') || 
+              lowerSrc.includes('loading') ||
+              lowerSrc.includes('1x1') ||
+              lowerSrc.includes('data:image/svg')) {
+            return; // Skip placeholder images
+          }
+          
           try {
             const absoluteUrl = new URL(src, baseUrl).href;
-            imageUrls.add(absoluteUrl);
+            // Filtrer les URLs invalides
+            if (absoluteUrl && absoluteUrl.startsWith('http')) {
+              imageUrls.add(absoluteUrl);
+            }
           } catch (e) {
             // Invalid URL, skip
           }
@@ -53,18 +79,33 @@ function extractKunmangaImages(html, baseUrl) {
     }
   }
   
+  // Fallback: toutes les images si rien trouvé
   if (!found || imageUrls.size === 0) {
     const allImages = $('img');
     allImages.each((i, elem) => {
       const $img = $(elem);
       let src = $img.attr('data-src') || 
                 $img.attr('data-lazy-src') || 
+                $img.attr('data-original') ||
+                $img.attr('data-url') ||
                 $img.attr('src');
       
       if (src) {
+        const lowerSrc = src.toLowerCase();
+        // Filtrer les placeholders
+        if (lowerSrc.includes('placeholder') || 
+            lowerSrc.includes('spinner') || 
+            lowerSrc.includes('loading') ||
+            lowerSrc.includes('1x1') ||
+            lowerSrc.includes('data:image/svg')) {
+          return;
+        }
+        
         try {
           const absoluteUrl = new URL(src, baseUrl).href;
-          imageUrls.add(absoluteUrl);
+          if (absoluteUrl && absoluteUrl.startsWith('http')) {
+            imageUrls.add(absoluteUrl);
+          }
         } catch (e) {
           // Invalid URL, skip
         }
@@ -203,10 +244,17 @@ app.get('/', async (req, res) => {
         timeout: 30000
       });
       
-      // Attendre un peu pour que le contenu se charge
-      await page.waitForTimeout(2000);
+      // Attendre que les images se chargent
+      await page.waitForTimeout(3000);
       
-      // Récupérer le HTML
+      // Attendre que les images soient présentes dans le DOM
+      try {
+        await page.waitForSelector('img', { timeout: 5000 });
+      } catch (e) {
+        // Continue même si pas d'images trouvées immédiatement
+      }
+      
+      // Récupérer le HTML après que tout soit chargé
       const html = await page.content();
       
       await browser.close();
