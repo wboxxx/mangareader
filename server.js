@@ -1,6 +1,7 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const cheerio = require('cheerio');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
