@@ -261,7 +261,9 @@ app.get('/', async (req, res) => {
         });
         
         if (!response.ok) {
-          throw new Error(`ScraperAPI error: HTTP ${response.status}`);
+          const errorText = await response.text().catch(() => 'No error details');
+          console.log(`ScraperAPI HTTP ${response.status} error: ${errorText.substring(0, 200)}`);
+          throw new Error(`ScraperAPI error: HTTP ${response.status} - ${errorText.substring(0, 100)}`);
         }
         
         const html = await response.text();
