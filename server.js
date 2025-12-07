@@ -320,15 +320,38 @@ app.get('/', async (req, res) => {
                                bodyText.includes('review the security') ||
                                document.querySelector('#cf-chl-widget') !== null;
           const hasContent = document.querySelector('.reading-content') !== null ||
-                            document.querySelector('.wp-manga-section') !== null;
-          return { hasCloudflare, hasContent, bodyText: bodyText.substring(0, 100) };
+                            document.querySelector('.wp-manga-section') !== null ||
+                            document.querySelector('main') !== null ||
+                            document.querySelector('article') !== null;
+          
+          // Vérifier aussi les images
+          const totalImages = document.querySelectorAll('img').length;
+          const readingContentImages = document.querySelectorAll('.reading-content img').length;
+          
+          // Vérifier le titre de la page
+          const pageTitle = document.title;
+          const hasMangaTitle = pageTitle.toLowerCase().includes('chapter') || 
+                               pageTitle.toLowerCase().includes('manga') ||
+                               pageTitle.toLowerCase().includes('read');
+          
+          return { 
+            hasCloudflare, 
+            hasContent, 
+            totalImages,
+            readingContentImages,
+            hasMangaTitle,
+            pageTitle: pageTitle.substring(0, 50),
+            bodyText: bodyText.substring(0, 150),
+            url: window.location.href
+          };
         });
         
-        console.log(`Attempt ${attempts}: Cloudflare=${check.hasCloudflare}, Content=${check.hasContent}`);
+        console.log(`Attempt ${attempts}: Cloudflare=${check.hasCloudflare}, Content=${check.hasContent}, Images=${check.totalImages}, Title="${check.pageTitle}"`);
         
-        if (!check.hasCloudflare && check.hasContent) {
+        // Si on a du contenu ou des images, considérer que c'est bon
+        if (!check.hasCloudflare && (check.hasContent || check.totalImages > 0 || check.hasMangaTitle)) {
           isCloudflareBlocked = false;
-          console.log('Cloudflare challenge resolved!');
+          console.log('Content detected! Cloudflare resolved or page loaded.');
           break;
         }
         
@@ -346,8 +369,21 @@ app.get('/', async (req, res) => {
         }
       }
       
-      if (isCloudflareBlocked) {
-        throw new Error('Cloudflare challenge not resolved after 60 seconds');
+      // Ne pas échouer si Cloudflare n'est plus présent, même sans contenu détecté
+      // Le contenu peut être chargé différemment
+      if (attempts >= maxAttempts) {
+        const finalCheck = await page.evaluate(() => {
+          const bodyText = document.body ? document.body.innerText : '';
+          const hasCloudflare = bodyText.includes('Verify you are human') || 
+                               bodyText.includes('review the security');
+          return { hasCloudflare, bodyText: bodyText.substring(0, 200) };
+        });
+        
+        if (finalCheck.hasCloudflare) {
+          throw new Error('Cloudflare challenge not resolved after 60 seconds');
+        } else {
+          console.log('Cloudflare not detected, continuing with extraction even if content not found...');
+        }
       }
       
       // Attendre que .reading-content apparaisse
