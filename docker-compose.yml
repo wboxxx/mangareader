@@ -6,6 +6,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      network: host
     container_name: manga-cleaner
     restart: unless-stopped
     network_mode: host
