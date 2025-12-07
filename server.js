@@ -4,8 +4,28 @@ const cheerio = require('cheerio');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
-// Utiliser le plugin Stealth pour contourner Cloudflare
+// Utiliser le plugin Stealth avec configuration optimale pour contourner Cloudflare
 puppeteer.use(StealthPlugin());
+
+// Configuration supplémentaire pour éviter la détection
+const stealthConfig = {
+  enabledEvasions: new Set([
+    'chrome.app',
+    'chrome.csi',
+    'chrome.loadTimes',
+    'chrome.runtime',
+    'iframe.contentWindow',
+    'media.codecs',
+    'navigator.hardwareConcurrency',
+    'navigator.languages',
+    'navigator.permissions',
+    'navigator.plugins',
+    'navigator.vendor',
+    'navigator.webdriver',
+    'user-agent-override',
+    'webrtc'
+  ])
+};
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -238,9 +258,45 @@ app.get('/', async (req, res) => {
       
       const page = await browser.newPage();
       
+      // Masquer les signaux de bot
+      await page.evaluateOnNewDocument(() => {
+        Object.defineProperty(navigator, 'webdriver', {
+          get: () => undefined
+        });
+        
+        // Masquer Chrome automation
+        window.chrome = {
+          runtime: {}
+        };
+        
+        // Permissions
+        const originalQuery = window.navigator.permissions.query;
+        window.navigator.permissions.query = (parameters) => (
+          parameters.name === 'notifications' ?
+            Promise.resolve({ state: Notification.permission }) :
+            originalQuery(parameters)
+        );
+        
+        // Plugins
+        Object.defineProperty(navigator, 'plugins', {
+          get: () => [1, 2, 3, 4, 5]
+        });
+        
+        // Languages
+        Object.defineProperty(navigator, 'languages', {
+          get: () => ['fr-FR', 'fr', 'en-US', 'en']
+        });
+      });
+      
       // Configurer le viewport et User-Agent
       await page.setViewport({ width: 1920, height: 1080 });
       await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+      
+      // Ajouter des headers supplémentaires
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'
+      });
       
       // Naviguer vers la page
       await page.goto(url, {
