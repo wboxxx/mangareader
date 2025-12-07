@@ -222,7 +222,7 @@ app.get('/', async (req, res) => {
     let browser;
     try {
       browser = await puppeteer.launch({
-        headless: true,
+        headless: 'new',
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
