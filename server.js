@@ -248,9 +248,10 @@ app.get('/', async (req, res) => {
     if (SCRAPERAPI_KEY) {
       console.log('Using ScraperAPI to bypass Cloudflare...');
       try {
-        // Utiliser HTTPS et ajouter des paramètres pour le rendu JavaScript et premium pour domaines protégés
-        // premium=true est nécessaire pour les sites protégés par Cloudflare comme kunmanga.com
-        const scraperApiUrl = `https://api.scraperapi.com?api_key=${SCRAPERAPI_KEY}&url=${encodeURIComponent(url)}&render=true&premium=true`;
+        // Utiliser HTTPS et ajouter des paramètres pour le rendu JavaScript et ultra_premium pour domaines protégés
+        // ultra_premium=true est nécessaire pour les sites protégés par Cloudflare comme kunmanga.com
+        // Note: Le plan gratuit peut ne pas supporter premium/ultra_premium (fonctionnalité payante)
+        const scraperApiUrl = `https://api.scraperapi.com?api_key=${SCRAPERAPI_KEY}&url=${encodeURIComponent(url)}&render=true&ultra_premium=true`;
         
         console.log(`Fetching via ScraperAPI: ${url}`);
         
