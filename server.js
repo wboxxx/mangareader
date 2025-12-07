@@ -175,7 +175,6 @@ app.get('/', async (req, res) => {
   
   try {
     const urlObj = new URL(url);
-    const domain = urlObj.origin;
     
     const response = await fetch(url, {
       headers: {
