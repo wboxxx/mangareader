@@ -60,8 +60,24 @@ docker compose up -d --build
 
 - **Backend** : Node.js + Express
 - **Scraping** : Cheerio pour parser le HTML
-- **HTTP Client** : node-fetch v2
+- **HTTP Client** : node-fetch v2 (avec option ScraperAPI pour contourner Cloudflare)
+- **Fallback** : Puppeteer avec plugin Stealth si ScraperAPI n'est pas configuré
 - **Extraction** : Fonction `extractKunmangaImages()` pour KunManga (extensible à d'autres sites)
+
+## Configuration ScraperAPI (optionnel mais recommandé)
+
+ScraperAPI permet de contourner Cloudflare automatiquement. Plan gratuit : 5000 requêtes/mois.
+
+1. Créer un compte sur https://www.scraperapi.com/
+2. Obtenir votre clé API (gratuite)
+3. Ajouter la variable d'environnement dans `docker-compose.yml` :
+   ```yaml
+   environment:
+     - SCRAPERAPI_KEY=votre_cle_api_ici
+   ```
+4. Redémarrer le conteneur
+
+Sans ScraperAPI, le système utilisera Puppeteer (plus lent, peut ne pas fonctionner avec Cloudflare Turnstile).
 
 ## Structure
 
