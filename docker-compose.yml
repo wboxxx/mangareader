@@ -12,6 +12,10 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
     networks:
       - manga-cleaner-network
     healthcheck:

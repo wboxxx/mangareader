@@ -424,7 +424,7 @@ app.get('/', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Manga Cleaner server running on port ${PORT}`);
 });
 
