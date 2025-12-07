@@ -289,7 +289,9 @@ app.get('/', async (req, res) => {
           if (images.length > 0) {
             images.forEach(img => {
               // Essayer plusieurs attributs pour les images lazy-load
-              let src = img.getAttribute('data-src') || 
+              // PRIORITÉ: img.src (les images KunManga ont src directement)
+              let src = img.src || 
+                       img.getAttribute('data-src') || 
                        img.getAttribute('data-lazy-src') || 
                        img.getAttribute('data-original') ||
                        img.getAttribute('data-url') ||
@@ -298,10 +300,9 @@ app.get('/', async (req, res) => {
                        img.dataset.lazySrc || 
                        img.dataset.original ||
                        img.dataset.url ||
-                       img.src ||
                        (img.tagName === 'SOURCE' ? img.srcset : null);
               
-              if (src) {
+              if (src && typeof src === 'string' && src.trim()) {
                 const lowerSrc = src.toLowerCase();
                 // Filtrer les placeholders et les petites images (probablement des icônes)
                 const isPlaceholder = lowerSrc.includes('placeholder') || 
@@ -309,16 +310,21 @@ app.get('/', async (req, res) => {
                                      lowerSrc.includes('loading') ||
                                      lowerSrc.includes('1x1') ||
                                      lowerSrc.startsWith('data:image/svg') ||
-                                     lowerSrc.includes('icon') ||
-                                     lowerSrc.includes('logo');
+                                     (lowerSrc.includes('icon') && !lowerSrc.includes('manga')) ||
+                                     (lowerSrc.includes('logo') && !lowerSrc.includes('manga'));
                 
                 // Vérifier la taille réelle de l'image si disponible
+                // Les images manga sont grandes (width ~800, height > 10000)
                 const isSmallImage = img.naturalWidth && img.naturalWidth < 100;
+                const isMangaImage = img.naturalWidth >= 500 || img.naturalHeight >= 5000;
                 
-                if (!isPlaceholder && !isSmallImage) {
+                // Accepter si c'est une image manga ou si on n'a pas d'info de taille
+                if (!isPlaceholder && (!isSmallImage || isMangaImage || !img.naturalWidth)) {
                   try {
+                    // Nettoyer l'URL (enlever les espaces, etc.)
+                    src = src.trim();
                     const absoluteUrl = new URL(src, baseUrl).href;
-                    if (absoluteUrl && absoluteUrl.startsWith('http')) {
+                    if (absoluteUrl && absoluteUrl.startsWith('http') && !absoluteUrl.includes('placeholder')) {
                       imageUrls.add(absoluteUrl);
                     }
                   } catch (e) {
