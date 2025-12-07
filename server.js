@@ -1,6 +1,7 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const cheerio = require('cheerio');
+const puppeteer = require('puppeteer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -176,34 +177,42 @@ app.get('/', async (req, res) => {
   try {
     const urlObj = new URL(url);
     
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-        'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Accept-Encoding': 'gzip, deflate, br, zstd',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-        'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
-        'Sec-Ch-Ua-Mobile': '?0',
-        'Sec-Ch-Ua-Platform': '"Windows"',
-        'Cache-Control': 'max-age=0',
-        'DNT': '1'
-      },
-      redirect: 'follow',
-      timeout: 30000
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const html = await response.text();
-    const images = extractKunmangaImages(html, url);
+    // Utiliser Puppeteer pour simuler un vrai navigateur
+    let browser;
+    try {
+      browser = await puppeteer.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--disable-gpu'
+        ]
+      });
+      
+      const page = await browser.newPage();
+      
+      // Configurer le viewport et User-Agent
+      await page.setViewport({ width: 1920, height: 1080 });
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+      
+      // Naviguer vers la page
+      await page.goto(url, {
+        waitUntil: 'networkidle2',
+        timeout: 30000
+      });
+      
+      // Attendre un peu pour que le contenu se charge
+      await page.waitForTimeout(2000);
+      
+      // Récupérer le HTML
+      const html = await page.content();
+      
+      await browser.close();
+      browser = null;
+      
+      const images = extractKunmangaImages(html, url);
     
     if (images.length === 0) {
       res.send(`
@@ -364,6 +373,15 @@ app.get('/', async (req, res) => {
     `);
     
   } catch (error) {
+    // Fermer le browser en cas d'erreur
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (e) {
+        // Ignore
+      }
+    }
+    
     res.status(500).send(`
 <!DOCTYPE html>
 <html lang="fr">
