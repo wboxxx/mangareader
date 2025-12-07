@@ -177,7 +177,7 @@ app.get('/', async (req, res) => {
     const urlObj = new URL(url);
     const domain = urlObj.origin;
     
-    // D'abord PAPA, faire une requête vers la page d'accueil pour simuler une navigation
+    // D'abord PAPy, faire une requête vers la page d'accueil pour simuler une navigation
     try {
       await fetch(domain, {
         headers: {
