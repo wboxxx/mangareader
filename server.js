@@ -1,7 +1,11 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const cheerio = require('cheerio');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+
+// Utiliser le plugin Stealth pour contourner Cloudflare
+puppeteer.use(StealthPlugin());
 
 const app = express();
 const PORT = process.env.PORT || 3000;
