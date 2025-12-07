@@ -242,36 +242,38 @@ app.get('/', async (req, res) => {
   try {
     const urlObj = new URL(url);
     
-    // Option 1: Utiliser ScraperAPI si la clé API est configurée (gratuit: 5000 req/mois)
-    const SCRAPERAPI_KEY = process.env.SCRAPERAPI_KEY;
+    // Option 1: Utiliser Bright Data si la clé API est configurée
+    const BRIGHT_DATA_API_KEY = process.env.BRIGHT_DATA_API_KEY;
     
-    if (SCRAPERAPI_KEY) {
-      console.log('Using ScraperAPI to bypass Cloudflare...');
+    if (BRIGHT_DATA_API_KEY) {
+      console.log('Using Bright Data to bypass Cloudflare...');
       try {
-        // Utiliser HTTPS et ajouter des paramètres pour le rendu JavaScript
-        // Note: premium/ultra_premium nécessitent un plan payant, on essaie sans d'abord
-        const scraperApiUrl = `https://api.scraperapi.com?api_key=${SCRAPERAPI_KEY}&url=${encodeURIComponent(url)}&render=true`;
+        // Bright Data utilise un endpoint API avec la clé en paramètre
+        // Format: https://api.brightdata.com/request?api_key=XXX&url=YYY
+        const brightDataUrl = `https://api.brightdata.com/request?api_key=${BRIGHT_DATA_API_KEY}&url=${encodeURIComponent(url)}`;
         
-        console.log(`Fetching via ScraperAPI: ${url}`);
+        console.log(`Fetching via Bright Data: ${url}`);
         
-        const response = await fetch(scraperApiUrl, {
+        const response = await fetch(brightDataUrl, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7'
           },
-          timeout: 60000 // Augmenter à 60 secondes
+          timeout: 60000
         });
         
         if (!response.ok) {
           const errorText = await response.text().catch(() => 'No error details');
-          console.log(`ScraperAPI HTTP ${response.status} error: ${errorText.substring(0, 200)}`);
-          throw new Error(`ScraperAPI error: HTTP ${response.status} - ${errorText.substring(0, 100)}`);
+          console.log(`Bright Data HTTP ${response.status} error: ${errorText.substring(0, 200)}`);
+          throw new Error(`Bright Data error: HTTP ${response.status} - ${errorText.substring(0, 100)}`);
         }
         
         const html = await response.text();
         const images = extractKunmangaImages(html, url);
         
         if (images.length > 0) {
-          console.log(`ScraperAPI: Extracted ${images.length} images`);
+          console.log(`Bright Data: Extracted ${images.length} images`);
           
           const imagesHtml = images.map(imgUrl => 
             `<img src="${escapeHtml(imgUrl)}" alt="Page manga" style="max-width: 100%; height: auto; display: block; margin: 0 auto;">`
@@ -340,11 +342,11 @@ app.get('/', async (req, res) => {
           `);
           return;
         } else {
-          console.log('ScraperAPI: No images found, falling back to Puppeteer...');
+          console.log('Bright Data: No images found, falling back to Puppeteer...');
           // Continue vers Puppeteer
         }
-      } catch (scraperError) {
-        console.log(`ScraperAPI failed: ${scraperError.message}, falling back to Puppeteer...`);
+      } catch (brightDataError) {
+        console.log(`Bright Data failed: ${brightDataError.message}, falling back to Puppeteer...`);
         // Continue vers Puppeteer en cas d'erreur
       }
     }
