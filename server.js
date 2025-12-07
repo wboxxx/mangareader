@@ -244,20 +244,36 @@ app.get('/', async (req, res) => {
         timeout: 30000
       });
       
-      // Attendre que la page soit complètement chargée
-      await page.waitForTimeout(2000);
+      // Attendre que .reading-content apparaisse (chargement dynamique)
+      try {
+        await page.waitForSelector('.reading-content', { timeout: 10000 });
+        console.log('.reading-content found, waiting for images...');
+      } catch (e) {
+        console.log('.reading-content not found, continuing anyway...');
+      }
+      
+      // Attendre que les images se chargent
+      await page.waitForTimeout(3000);
       
       // Scroller la page pour déclencher le lazy loading des images
       await page.evaluate(() => {
         window.scrollTo(0, document.body.scrollHeight);
       });
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(3000);
       
       // Scroller vers le haut
       await page.evaluate(() => {
         window.scrollTo(0, 0);
       });
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(2000);
+      
+      // Attendre que les images soient présentes
+      try {
+        await page.waitForSelector('.reading-content img', { timeout: 5000 });
+        console.log('Images found in .reading-content');
+      } catch (e) {
+        console.log('No images found in .reading-content, trying all images...');
+      }
       
       // Extraire les images directement via JavaScript dans le navigateur
       const images = await page.evaluate((baseUrl) => {
