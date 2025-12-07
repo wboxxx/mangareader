@@ -248,61 +248,80 @@ app.get('/', async (req, res) => {
         timeout: 30000
       });
       
-      // Vérifier ce qui est chargé
-      const initialCheck = await page.evaluate(() => {
-        return {
-          bodyExists: !!document.body,
-          bodyText: document.body ? document.body.innerText.substring(0, 200) : 'no body',
-          totalImages: document.querySelectorAll('img').length,
-          readingContent: !!document.querySelector('.reading-content'),
-          wpMangaSection: !!document.querySelector('.wp-manga-section')
-        };
-      });
-      console.log('Initial page check:', JSON.stringify(initialCheck, null, 2));
+      // Attendre que Cloudflare Turnstile soit résolu
+      // Vérifier si on est bloqué par Cloudflare
+      let isCloudflareBlocked = true;
+      let attempts = 0;
+      const maxAttempts = 30; // 30 tentatives de 2 secondes = 60 secondes max
       
-      // Attendre plus longtemps pour le chargement dynamique
-      await page.waitForTimeout(5000);
-      
-      // Attendre que .reading-content apparaisse (chargement dynamique)
-      try {
-        await page.waitForSelector('.reading-content', { timeout: 15000 });
-        console.log('.reading-content found!');
-      } catch (e) {
-        console.log('.reading-content not found after 15s, checking alternatives...');
-        // Vérifier d'autres sélecteurs
-        const alternatives = await page.evaluate(() => {
-          return {
-            wpMangaSection: !!document.querySelector('.wp-manga-section'),
-            main: !!document.querySelector('main'),
-            article: !!document.querySelector('article'),
-            totalImages: document.querySelectorAll('img').length
-          };
+      while (isCloudflareBlocked && attempts < maxAttempts) {
+        await page.waitForTimeout(2000);
+        attempts++;
+        
+        const check = await page.evaluate(() => {
+          const bodyText = document.body ? document.body.innerText : '';
+          const hasCloudflare = bodyText.includes('Verify you are human') || 
+                               bodyText.includes('review the security') ||
+                               document.querySelector('#cf-chl-widget') !== null;
+          const hasContent = document.querySelector('.reading-content') !== null ||
+                            document.querySelector('.wp-manga-section') !== null;
+          return { hasCloudflare, hasContent, bodyText: bodyText.substring(0, 100) };
         });
-        console.log('Alternative selectors:', JSON.stringify(alternatives, null, 2));
+        
+        console.log(`Attempt ${attempts}: Cloudflare=${check.hasCloudflare}, Content=${check.hasContent}`);
+        
+        if (!check.hasCloudflare && check.hasContent) {
+          isCloudflareBlocked = false;
+          console.log('Cloudflare challenge resolved!');
+          break;
+        }
+        
+        // Si on est toujours bloqué après 10 secondes, essayer de cliquer/interagir
+        if (attempts === 5) {
+          try {
+            // Essayer de trouver et cliquer sur le bouton Turnstile si présent
+            const turnstileButton = await page.$('iframe[src*="challenges.cloudflare.com"]');
+            if (turnstileButton) {
+              console.log('Found Turnstile iframe, waiting for auto-resolution...');
+            }
+          } catch (e) {
+            // Ignore
+          }
+        }
       }
       
-      // Attendre encore pour le chargement JavaScript
-      await page.waitForTimeout(5000);
+      if (isCloudflareBlocked) {
+        throw new Error('Cloudflare challenge not resolved after 60 seconds');
+      }
       
-      // Scroller la page pour déclencher le lazy loading des images
+      // Attendre que .reading-content apparaisse
+      try {
+        await page.waitForSelector('.reading-content', { timeout: 10000 });
+        console.log('.reading-content found!');
+      } catch (e) {
+        console.log('.reading-content not found, checking alternatives...');
+      }
+      
+      // Attendre le chargement JavaScript
+      await page.waitForTimeout(3000);
+      
+      // Scroller pour déclencher le lazy loading
       await page.evaluate(() => {
         window.scrollTo(0, document.body.scrollHeight);
       });
       await page.waitForTimeout(3000);
       
-      // Scroller vers le haut
       await page.evaluate(() => {
         window.scrollTo(0, 0);
       });
-      await page.waitForTimeout(3000);
+      await page.waitForTimeout(2000);
       
       // Vérification finale
       const finalCheck = await page.evaluate(() => {
         return {
           readingContent: !!document.querySelector('.reading-content'),
           readingContentImages: document.querySelectorAll('.reading-content img').length,
-          totalImages: document.querySelectorAll('img').length,
-          bodyHTML: document.body ? document.body.innerHTML.substring(0, 500) : 'no body'
+          totalImages: document.querySelectorAll('img').length
         };
       });
       console.log('Final check:', JSON.stringify(finalCheck, null, 2));
