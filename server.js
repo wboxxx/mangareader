@@ -372,7 +372,7 @@ app.get('/', async (req, res) => {
       await browser.close();
       browser = null;
       
-      if (!imageUrls || imageUrls.length === 0) {
+      if (!images || images.length === 0) {
       res.send(`
 <!DOCTYPE html>
 <html lang="fr">
@@ -521,7 +521,7 @@ app.get('/', async (req, res) => {
 <body>
   <div class="info-bar">
     <p><strong>Pages extraites depuis :</strong> <code>${escapeHtml(url)}</code></p>
-    <p><strong>Nombre d'images :</strong> ${imageUrls.length}</p>
+    <p><strong>Nombre d'images :</strong> ${images.length}</p>
   </div>
   <div class="images-container">
     ${imagesHtml}
