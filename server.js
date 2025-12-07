@@ -244,16 +244,41 @@ app.get('/', async (req, res) => {
         timeout: 30000
       });
       
+      // Vérifier ce qui est chargé
+      const initialCheck = await page.evaluate(() => {
+        return {
+          bodyExists: !!document.body,
+          bodyText: document.body ? document.body.innerText.substring(0, 200) : 'no body',
+          totalImages: document.querySelectorAll('img').length,
+          readingContent: !!document.querySelector('.reading-content'),
+          wpMangaSection: !!document.querySelector('.wp-manga-section')
+        };
+      });
+      console.log('Initial page check:', JSON.stringify(initialCheck, null, 2));
+      
+      // Attendre plus longtemps pour le chargement dynamique
+      await page.waitForTimeout(5000);
+      
       // Attendre que .reading-content apparaisse (chargement dynamique)
       try {
-        await page.waitForSelector('.reading-content', { timeout: 10000 });
-        console.log('.reading-content found, waiting for images...');
+        await page.waitForSelector('.reading-content', { timeout: 15000 });
+        console.log('.reading-content found!');
       } catch (e) {
-        console.log('.reading-content not found, continuing anyway...');
+        console.log('.reading-content not found after 15s, checking alternatives...');
+        // Vérifier d'autres sélecteurs
+        const alternatives = await page.evaluate(() => {
+          return {
+            wpMangaSection: !!document.querySelector('.wp-manga-section'),
+            main: !!document.querySelector('main'),
+            article: !!document.querySelector('article'),
+            totalImages: document.querySelectorAll('img').length
+          };
+        });
+        console.log('Alternative selectors:', JSON.stringify(alternatives, null, 2));
       }
       
-      // Attendre que les images se chargent
-      await page.waitForTimeout(3000);
+      // Attendre encore pour le chargement JavaScript
+      await page.waitForTimeout(5000);
       
       // Scroller la page pour déclencher le lazy loading des images
       await page.evaluate(() => {
@@ -265,15 +290,18 @@ app.get('/', async (req, res) => {
       await page.evaluate(() => {
         window.scrollTo(0, 0);
       });
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(3000);
       
-      // Attendre que les images soient présentes
-      try {
-        await page.waitForSelector('.reading-content img', { timeout: 5000 });
-        console.log('Images found in .reading-content');
-      } catch (e) {
-        console.log('No images found in .reading-content, trying all images...');
-      }
+      // Vérification finale
+      const finalCheck = await page.evaluate(() => {
+        return {
+          readingContent: !!document.querySelector('.reading-content'),
+          readingContentImages: document.querySelectorAll('.reading-content img').length,
+          totalImages: document.querySelectorAll('img').length,
+          bodyHTML: document.body ? document.body.innerHTML.substring(0, 500) : 'no body'
+        };
+      });
+      console.log('Final check:', JSON.stringify(finalCheck, null, 2));
       
       // Extraire les images directement via JavaScript dans le navigateur
       const images = await page.evaluate((baseUrl) => {
